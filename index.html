@@ -1,59 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>LeanR Dietitian Dashboard</title>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<script src="https://www.gstatic.com/charts/loader.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 
 <style>
 
 body{
-font-family:Arial;
-background:#f4f6fb;
-margin:20px;
+background:#f3f6fb;
+font-family:'Segoe UI',sans-serif;
 }
 
-h1{
+.dashboard-header{
+background:linear-gradient(135deg,#1a73e8,#0d47a1);
+color:white;
+padding:2rem;
+border-radius:0 0 25px 25px;
 text-align:center;
-margin-bottom:30px;
+margin-bottom:25px;
 }
 
-.grid{
-display:grid;
-grid-template-columns:repeat(4,1fr);
-gap:20px;
-margin-bottom:30px;
-}
-
-.card{
+.metric-card{
 background:white;
+border-radius:15px;
+box-shadow:0 3px 15px rgba(0,0,0,0.08);
 padding:20px;
-border-radius:10px;
-box-shadow:0 2px 10px rgba(0,0,0,0.1);
 text-align:center;
 }
 
-.card h3{
-margin-bottom:10px;
-}
-
-.card p{
-font-size:28px;
+.metric-value{
+font-size:2.5rem;
+font-weight:800;
 color:#1a73e8;
 }
 
-.chartgrid{
-display:grid;
-grid-template-columns:1fr 1fr;
-gap:25px;
+.metric-label{
+font-size:0.85rem;
+font-weight:700;
+color:#6c757d;
+text-transform:uppercase;
 }
 
-canvas{
+.chart-container{
+height:420px;
+}
+
+#loading{
+position:fixed;
+inset:0;
 background:white;
-padding:10px;
-border-radius:10px;
-box-shadow:0 2px 10px rgba(0,0,0,0.1);
+display:flex;
+align-items:center;
+justify-content:center;
+z-index:9999;
 }
 
 </style>
@@ -62,241 +70,236 @@ box-shadow:0 2px 10px rgba(0,0,0,0.1);
 
 <body>
 
-<h1>LeanR Dietitian Operations Dashboard</h1>
+<div id="loading">
 
-<div class="grid">
-
-<div class="card">
-<h3>Total Clients</h3>
-<p id="clients">0</p>
-</div>
-
-<div class="card">
-<h3>Avg Utilization</h3>
-<p id="util">0%</p>
-</div>
-
-<div class="card">
-<h3>Avg Red Diet %</h3>
-<p id="red">0%</p>
-</div>
-
-<div class="card">
-<h3>Hiring Required</h3>
-<p id="hire">0</p>
-</div>
+<div class="spinner-border text-primary"></div>
 
 </div>
 
-<div class="chartgrid">
+<div class="dashboard-header">
 
-<canvas id="clientChart"></canvas>
-<canvas id="utilChart"></canvas>
-<canvas id="followChart"></canvas>
-<canvas id="redChart"></canvas>
+<h2 class="fw-bold">LeanR Dietitian Operations Dashboard</h2>
+<p class="opacity-75">Live Operational Monitoring</p>
+
+</div>
+
+<div class="container-fluid px-4">
+
+<div class="row g-4 mb-4 text-center">
+
+<div class="col-md-3">
+<div class="metric-card">
+<div class="metric-label">Total Clients</div>
+<div id="clients" class="metric-value">0</div>
+</div>
+</div>
+
+<div class="col-md-3">
+<div class="metric-card">
+<div class="metric-label">Avg Utilization</div>
+<div id="util" class="metric-value">0%</div>
+</div>
+</div>
+
+<div class="col-md-3">
+<div class="metric-card">
+<div class="metric-label">Red Diet %</div>
+<div id="red" class="metric-value">0%</div>
+</div>
+</div>
+
+<div class="col-md-3">
+<div class="metric-card">
+<div class="metric-label">Hiring Required</div>
+<div id="hire" class="metric-value">0</div>
+</div>
+</div>
+
+</div>
+
+<div class="row g-4">
+
+<div class="col-lg-6">
+
+<div class="metric-card">
+
+<h5 class="fw-bold mb-3 text-center">Active Clients per Dietitian</h5>
+
+<div id="clients_chart" class="chart-container"></div>
+
+</div>
+
+</div>
+
+<div class="col-lg-6">
+
+<div class="metric-card">
+
+<h5 class="fw-bold mb-3 text-center">Utilization %</h5>
+
+<div id="util_chart" class="chart-container"></div>
+
+</div>
+
+</div>
+
+<div class="col-lg-6">
+
+<div class="metric-card">
+
+<h5 class="fw-bold mb-3 text-center">Connected Followups</h5>
+
+<div id="follow_chart" class="chart-container"></div>
+
+</div>
+
+</div>
+
+<div class="col-lg-6">
+
+<div class="metric-card">
+
+<h5 class="fw-bold mb-3 text-center">Red Diet Count</h5>
+
+<div id="red_chart" class="chart-container"></div>
+
+</div>
+
+</div>
+
+</div>
 
 </div>
 
 <script>
 
-const sheetURL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQwCAuchUK4kAn57veARN-icxlCyq2XUvd-blTlivJUCF7exfGvsDqipSlvv8eWjp_08gZ7iWx0tLIa/pub?output=csv";
+google.charts.load('current',{'packages':['corechart']})
 
-let charts=[];
+const sheetURL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQwCAuchUK4kAn57veARN-icxlCyq2XUvd-blTlivJUCF7exfGvsDqipSlvv8eWjp_08gZ7iWx0tLIa/pub?gid=1930162210&single=true&output=csv"
 
-async function loadData(){
+function init(){
 
-const response=await fetch(sheetURL);
-const text=await response.text();
+Papa.parse(sheetURL,{
+download:true,
+header:true,
+skipEmptyLines:true,
+complete:res=>process(res.data)
+})
 
-const rows=text.split("\n").slice(1);
+}
 
-let names=[];
-let clients=[];
-let util=[];
-let red=[];
-let follow=[];
+function process(data){
 
-let totalClients=0;
-let utilTotal=0;
-let redTotal=0;
+let names=[]
+let clients=[]
+let util=[]
+let follow=[]
+let red=[]
 
-rows.forEach(r=>{
+let totalClients=0
+let utilTotal=0
+let redTotal=0
 
-if(r.trim()==="") return;
+data.forEach(row=>{
 
-const cols=r.split(",");
+let name=row["Dietitian"]
 
-let name=cols[0];
-let active=parseFloat(cols[3])||0;
+let active=parseFloat(row["Active Client"])||0
 
-let counsellingTalk=parseFloat(cols[10])||0;
-let followTalk=parseFloat(cols[17])||0;
+let talk1=parseFloat(row["Average Talktime in Minutes"])||0
+let talk2=parseFloat(row["Average Talktime in a Day in Minutes"])||0
 
-let redDiet=parseFloat(cols[14])||0;
-let followup=parseFloat(cols[16])||0;
+let redDiet=parseFloat(row["Average Red Diet Count"])||0
 
-let utilization=((counsellingTalk+followTalk)/540)*100;
+let followup=parseFloat(row["Connected"])||0
 
-names.push(name);
-clients.push(active);
-util.push(utilization.toFixed(1));
-red.push(redDiet);
-follow.push(followup);
+let utilization=((talk1+talk2)/540)*100
 
-totalClients+=active;
-utilTotal+=utilization;
-redTotal+=redDiet;
+names.push(name)
+clients.push(active)
+util.push(utilization)
+follow.push(followup)
+red.push(redDiet)
 
-});
+totalClients+=active
+utilTotal+=utilization
+redTotal+=redDiet
 
-document.getElementById("clients").innerText=Math.round(totalClients);
-document.getElementById("util").innerText=(utilTotal/names.length).toFixed(1)+"%";
-document.getElementById("red").innerText=(redTotal/names.length).toFixed(1)+"%";
+})
 
-let capacity=70;
-let hire=Math.ceil(totalClients/capacity)-names.length;
+document.getElementById("clients").innerText=Math.round(totalClients)
 
-document.getElementById("hire").innerText=hire>0?hire:0;
+document.getElementById("util").innerText=(utilTotal/names.length).toFixed(1)+"%"
 
-drawCharts(names,clients,util,follow,red);
+document.getElementById("red").innerText=(redTotal/names.length).toFixed(1)+"%"
+
+let capacity=70
+
+let hire=Math.ceil(totalClients/capacity)-names.length
+
+document.getElementById("hire").innerText=hire>0?hire:0
+
+drawCharts(names,clients,util,follow,red)
+
+document.getElementById("loading").style.display="none"
 
 }
 
 function drawCharts(names,clients,util,follow,red){
 
-charts.forEach(c=>c.destroy());
-charts=[];
+let clientRows=[["Dietitian","Clients"]]
 
-charts.push(new Chart(document.getElementById("clientChart"),{
-type:"bar",
-data:{
-labels:names,
-datasets:[{
-label:"Active Clients",
-data:clients,
-backgroundColor:"#4285F4"
-}]
-}
-}));
+names.forEach((n,i)=>clientRows.push([n,clients[i]]))
 
-charts.push(new Chart(document.getElementById("utilChart"),{
-type:"bar",
-data:{
-labels:names,
-datasets:[{
-label:"Utilization %",
-data:util,
-backgroundColor:"#34A853"
-}]
-}
-}));
+let clientData=google.visualization.arrayToDataTable(clientRows)
 
-charts.push(new Chart(document.getElementById("followChart"),{
-type:"bar",
-data:{
-labels:names,
-datasets:[{
-label:"Connected Followups",
-data:follow,
-backgroundColor:"#FBBC05"
-}]
-}
-}));
+new google.visualization.ColumnChart(document.getElementById("clients_chart")).draw(clientData,{
+legend:"none",
+colors:["#1a73e8"],
+chartArea:{width:"70%",height:"80%"}
+})
 
-charts.push(new Chart(document.getElementById("redChart"),{
-type:"bar",
-data:{
-labels:names,
-datasets:[{
-label:"Red Diet Count",
-data:red,
-backgroundColor:"#EA4335"
-}]
-}
-}));
+let utilRows=[["Dietitian","Utilization"]]
+
+names.forEach((n,i)=>utilRows.push([n,util[i]]))
+
+let utilData=google.visualization.arrayToDataTable(utilRows)
+
+new google.visualization.ColumnChart(document.getElementById("util_chart")).draw(utilData,{
+legend:"none",
+colors:["#34a853"],
+chartArea:{width:"70%",height:"80%"}
+})
+
+let followRows=[["Dietitian","Followups"]]
+
+names.forEach((n,i)=>followRows.push([n,follow[i]]))
+
+let followData=google.visualization.arrayToDataTable(followRows)
+
+new google.visualization.BarChart(document.getElementById("follow_chart")).draw(followData,{
+legend:"none",
+colors:["#fbbc05"],
+chartArea:{width:"65%",height:"80%"}
+})
+
+let redRows=[["Dietitian","Red Diet"]]
+
+names.forEach((n,i)=>redRows.push([n,red[i]]))
+
+let redData=google.visualization.arrayToDataTable(redRows)
+
+new google.visualization.BarChart(document.getElementById("red_chart")).draw(redData,{
+legend:"none",
+colors:["#ea4335"],
+chartArea:{width:"65%",height:"80%"}
+})
 
 }
 
-loadData();
+google.charts.setOnLoadCallback(init)
 
-setInterval(loadData,60000);
-
-</script>
-
-</body>
-</html>totalClients+=active;
-utilTotal+=utilization;
-redTotal+=redDiet;
-
-});
-
-document.getElementById("clients").innerText=Math.round(totalClients);
-document.getElementById("util").innerText=(utilTotal/data.length).toFixed(1)+"%";
-document.getElementById("red").innerText=(redTotal/data.length).toFixed(1)+"%";
-
-let capacity=70;
-let hire=Math.ceil(totalClients/capacity)-data.length;
-
-document.getElementById("hire").innerText=hire>0?hire:0;
-
-drawCharts(names,clients,util,follow,red);
-
-}
-
-function drawCharts(names,clients,util,follow,red){
-
-charts.forEach(c=>c.destroy());
-charts=[];
-
-charts.push(new Chart(clientChart,{
-type:"bar",
-data:{
-labels:names,
-datasets:[{
-label:"Active Clients",
-data:clients
-}]
-}
-}));
-
-charts.push(new Chart(utilChart,{
-type:"bar",
-data:{
-labels:names,
-datasets:[{
-label:"Utilization %",
-data:util
-}]
-}
-}));
-
-charts.push(new Chart(followChart,{
-type:"bar",
-data:{
-labels:names,
-datasets:[{
-label:"Connected Followups",
-data:follow
-}]
-}
-}));
-
-charts.push(new Chart(redChart,{
-type:"bar",
-data:{
-labels:names,
-datasets:[{
-label:"Red Diet Count",
-data:red
-}]
-}
-}));
-
-}
-
-loadData();
-
-setInterval(loadData,60000);
+setInterval(init,60000)
 
 </script>
 
