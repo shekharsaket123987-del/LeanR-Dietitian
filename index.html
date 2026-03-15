@@ -4,13 +4,12 @@
 <meta charset="UTF-8">
 <title>LeanR Dietitian Dashboard</title>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 
 body{
-font-family:Arial, sans-serif;
+font-family:Arial;
 background:#f4f6fb;
 margin:20px;
 }
@@ -58,6 +57,7 @@ box-shadow:0 2px 10px rgba(0,0,0,0.1);
 }
 
 </style>
+
 </head>
 
 <body>
@@ -99,19 +99,16 @@ box-shadow:0 2px 10px rgba(0,0,0,0.1);
 
 <script>
 
-const sheetURL =
-"https://docs.google.com/spreadsheets/d/e/2PACX-1vQwCAuchUK4kAn57veARN-icxlCyq2XUvd-blTlivJUCF7exfGvsDqipSlvv8eWjp_08gZ7iWx0tLIa/pub?output=ods";
+const sheetURL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQwCAuchUK4kAn57veARN-icxlCyq2XUvd-blTlivJUCF7exfGvsDqipSlvv8eWjp_08gZ7iWx0tLIa/pub?output=csv";
 
 let charts=[];
 
 async function loadData(){
 
-const response = await fetch(sheetURL);
-const buffer = await response.arrayBuffer();
+const response=await fetch(sheetURL);
+const text=await response.text();
 
-const workbook = XLSX.read(buffer,{type:"array"});
-const sheet = workbook.Sheets[workbook.SheetNames[0]];
-const data = XLSX.utils.sheet_to_json(sheet);
+const rows=text.split("\n").slice(1);
 
 let names=[];
 let clients=[];
@@ -123,23 +120,111 @@ let totalClients=0;
 let utilTotal=0;
 let redTotal=0;
 
-data.forEach(row=>{
+rows.forEach(r=>{
 
-let active=parseFloat(row["Active Client"])||0;
-let talk1=parseFloat(row["Average Talktime in Minutes"])||0;
-let talk2=parseFloat(row["Average Talktime in a Day in Minutes"])||0;
-let redDiet=parseFloat(row["Average Red Diet Count"])||0;
-let followup=parseFloat(row["Connected"])||0;
+if(r.trim()==="") return;
 
-let utilization=((talk1+talk2)/540)*100;
+const cols=r.split(",");
 
-names.push(row["Dietitian"]);
+let name=cols[0];
+let active=parseFloat(cols[3])||0;
+
+let counsellingTalk=parseFloat(cols[10])||0;
+let followTalk=parseFloat(cols[17])||0;
+
+let redDiet=parseFloat(cols[14])||0;
+let followup=parseFloat(cols[16])||0;
+
+let utilization=((counsellingTalk+followTalk)/540)*100;
+
+names.push(name);
 clients.push(active);
 util.push(utilization.toFixed(1));
 red.push(redDiet);
 follow.push(followup);
 
 totalClients+=active;
+utilTotal+=utilization;
+redTotal+=redDiet;
+
+});
+
+document.getElementById("clients").innerText=Math.round(totalClients);
+document.getElementById("util").innerText=(utilTotal/names.length).toFixed(1)+"%";
+document.getElementById("red").innerText=(redTotal/names.length).toFixed(1)+"%";
+
+let capacity=70;
+let hire=Math.ceil(totalClients/capacity)-names.length;
+
+document.getElementById("hire").innerText=hire>0?hire:0;
+
+drawCharts(names,clients,util,follow,red);
+
+}
+
+function drawCharts(names,clients,util,follow,red){
+
+charts.forEach(c=>c.destroy());
+charts=[];
+
+charts.push(new Chart(document.getElementById("clientChart"),{
+type:"bar",
+data:{
+labels:names,
+datasets:[{
+label:"Active Clients",
+data:clients,
+backgroundColor:"#4285F4"
+}]
+}
+}));
+
+charts.push(new Chart(document.getElementById("utilChart"),{
+type:"bar",
+data:{
+labels:names,
+datasets:[{
+label:"Utilization %",
+data:util,
+backgroundColor:"#34A853"
+}]
+}
+}));
+
+charts.push(new Chart(document.getElementById("followChart"),{
+type:"bar",
+data:{
+labels:names,
+datasets:[{
+label:"Connected Followups",
+data:follow,
+backgroundColor:"#FBBC05"
+}]
+}
+}));
+
+charts.push(new Chart(document.getElementById("redChart"),{
+type:"bar",
+data:{
+labels:names,
+datasets:[{
+label:"Red Diet Count",
+data:red,
+backgroundColor:"#EA4335"
+}]
+}
+}));
+
+}
+
+loadData();
+
+setInterval(loadData,60000);
+
+</script>
+
+</body>
+</html>totalClients+=active;
 utilTotal+=utilization;
 redTotal+=redDiet;
 
