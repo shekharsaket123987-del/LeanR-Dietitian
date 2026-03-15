@@ -10,7 +10,6 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <script src="https://www.gstatic.com/charts/loader.js"></script>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 
 <style>
@@ -54,27 +53,11 @@ text-transform:uppercase;
 height:420px;
 }
 
-#loading{
-position:fixed;
-inset:0;
-background:white;
-display:flex;
-align-items:center;
-justify-content:center;
-z-index:9999;
-}
-
 </style>
 
 </head>
 
 <body>
-
-<div id="loading">
-
-<div class="spinner-border text-primary"></div>
-
-</div>
 
 <div class="dashboard-header">
 
@@ -120,51 +103,17 @@ z-index:9999;
 <div class="row g-4">
 
 <div class="col-lg-6">
-
 <div class="metric-card">
-
 <h5 class="fw-bold mb-3 text-center">Active Clients per Dietitian</h5>
-
 <div id="clients_chart" class="chart-container"></div>
-
 </div>
-
 </div>
 
 <div class="col-lg-6">
-
 <div class="metric-card">
-
 <h5 class="fw-bold mb-3 text-center">Utilization %</h5>
-
 <div id="util_chart" class="chart-container"></div>
-
 </div>
-
-</div>
-
-<div class="col-lg-6">
-
-<div class="metric-card">
-
-<h5 class="fw-bold mb-3 text-center">Connected Followups</h5>
-
-<div id="follow_chart" class="chart-container"></div>
-
-</div>
-
-</div>
-
-<div class="col-lg-6">
-
-<div class="metric-card">
-
-<h5 class="fw-bold mb-3 text-center">Red Diet Count</h5>
-
-<div id="red_chart" class="chart-container"></div>
-
-</div>
-
 </div>
 
 </div>
@@ -175,55 +124,47 @@ z-index:9999;
 
 google.charts.load('current',{'packages':['corechart']})
 
-const sheetURL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQwCAuchUK4kAn57veARN-icxlCyq2XUvd-blTlivJUCF7exfGvsDqipSlvv8eWjp_08gZ7iWx0tLIa/pub?gid=1930162210&single=true&output=csv"
+const csvURL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQwCAuchUK4kAn57veARN-icxlCyq2XUvd-blTlivJUCF7exfGvsDqipSlvv8eWjp_08gZ7iWx0tLIa/pub?gid=1930162210&single=true&output=csv"
 
 function init(){
 
-Papa.parse(sheetURL,{
+Papa.parse(csvURL,{
 download:true,
-header:true,
-skipEmptyLines:true,
 complete:res=>process(res.data)
 })
 
 }
 
-function process(data){
+function process(rows){
+
+rows.shift()
 
 let names=[]
 let clients=[]
 let util=[]
-let follow=[]
-let red=[]
 
 let totalClients=0
 let utilTotal=0
-let redTotal=0
 
-data.forEach(row=>{
+rows.forEach(r=>{
 
-let name=row["Dietitian"]
+if(r.length<18) return
 
-let active=parseFloat(row["Active Client"])||0
+let name=r[0]
 
-let talk1=parseFloat(row["Average Talktime in Minutes"])||0
-let talk2=parseFloat(row["Average Talktime in a Day in Minutes"])||0
+let active=parseFloat(r[3])||0
 
-let redDiet=parseFloat(row["Average Red Diet Count"])||0
+let counsellingTalk=parseFloat(r[10])||0
+let followTalk=parseFloat(r[17])||0
 
-let followup=parseFloat(row["Connected"])||0
-
-let utilization=((talk1+talk2)/540)*100
+let utilization=((counsellingTalk+followTalk)/540)*100
 
 names.push(name)
 clients.push(active)
 util.push(utilization)
-follow.push(followup)
-red.push(redDiet)
 
 totalClients+=active
 utilTotal+=utilization
-redTotal+=redDiet
 
 })
 
@@ -231,21 +172,18 @@ document.getElementById("clients").innerText=Math.round(totalClients)
 
 document.getElementById("util").innerText=(utilTotal/names.length).toFixed(1)+"%"
 
-document.getElementById("red").innerText=(redTotal/names.length).toFixed(1)+"%"
+document.getElementById("red").innerText="Live"
 
 let capacity=70
-
 let hire=Math.ceil(totalClients/capacity)-names.length
 
 document.getElementById("hire").innerText=hire>0?hire:0
 
-drawCharts(names,clients,util,follow,red)
-
-document.getElementById("loading").style.display="none"
+drawCharts(names,clients,util)
 
 }
 
-function drawCharts(names,clients,util,follow,red){
+function drawCharts(names,clients,util){
 
 let clientRows=[["Dietitian","Clients"]]
 
@@ -269,30 +207,6 @@ new google.visualization.ColumnChart(document.getElementById("util_chart")).draw
 legend:"none",
 colors:["#34a853"],
 chartArea:{width:"70%",height:"80%"}
-})
-
-let followRows=[["Dietitian","Followups"]]
-
-names.forEach((n,i)=>followRows.push([n,follow[i]]))
-
-let followData=google.visualization.arrayToDataTable(followRows)
-
-new google.visualization.BarChart(document.getElementById("follow_chart")).draw(followData,{
-legend:"none",
-colors:["#fbbc05"],
-chartArea:{width:"65%",height:"80%"}
-})
-
-let redRows=[["Dietitian","Red Diet"]]
-
-names.forEach((n,i)=>redRows.push([n,red[i]]))
-
-let redData=google.visualization.arrayToDataTable(redRows)
-
-new google.visualization.BarChart(document.getElementById("red_chart")).draw(redData,{
-legend:"none",
-colors:["#ea4335"],
-chartArea:{width:"65%",height:"80%"}
 })
 
 }
